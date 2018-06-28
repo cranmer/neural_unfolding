@@ -1,0 +1,87 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Direct unfolded density estimation}
+\author{Kyle Cranmer}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe an approach to high-dimensional, unbinned unfolding problems, when the stochastic folding process is implicitly defined by a simulator.
+\end{abstract}
+
+\section{Introduction}
+
+Consider a random variable $X \sim p_{X}$ that can be regarded as the   "folding" of  a latent variable  $Z \sim p_{Z}$ through some  stochastic process  described by $p(X|Z)$.  We can write the density for $X$ as
+\begin{equation}\label{eq:px}
+p_{X}(x) = \int dz \, p_{X|Z}(x|z)\, p_{Z}(z) \; .
+\end{equation}
+
+We assume that we have a simulation of the stochastic process $p(X|Z)$ that provides training pairs $\left \{ (x,z)_j \right\}_{j=1}^{M}$ that we can use to learn $\hat{p}_{X|Z}(x|z)$, our estimate $p_{X|Z}(x|z)$.  
+
+Given some observations $\left\{ x_i \right\}_{i=1}^{N}$, our goal is to estimate the "unfolded" distribution $p_{Z}$. This is an inverse problem, often referred to as "unfolding" in particle physics.  This inverse  problem is  \textit{ill posed}, and is typically regularized via  Tikhonov regularization. There is a connection to Tikhonov regularization and reproducing kernel Hilbert spaces (RKHS). Here we consider a similar setting. our focus is not on regularization, which can be seen as a penalty or prior on $\hat{p}_Z$, but instead  on recent methods for direct density estimation of the unfolded distribution.  
+
+\subsection{density estimation via a bijection}
+
+Our starting point is to consider the idealized case where we observe $z$. We can estimate the density $p_Z$ with  techniques that use a bijection $f:Z\to V$ (e.g. an invertible flow or autoregressive model) and a tractable density $p_V(v)$.  In particular 
+\begin{equation}
+p_{Z}(z) =  p_V(f_{\theta}(z))\, J_{z}
+\end{equation}
+where
+\begin{equation}
+\label{eq:jacJz}
+J_{z} =  \left| \det \frac{\partial f_{\theta}(z)}{\partial {z}_T} \right|
+\end{equation}
+and $\theta$ are the internal network parameters for the bijection $f_\theta$. Learning proceeds via gradient ascent $\nabla_\theta \sum_i \log p_{Z}(z_i)$ with data $z_i$  (i.e. maximum likelihood wrt. the internal parameters $\theta$). 
+
+Of course, we don't estimate the latent variable $Z$, but we can still use this technique as described below.
+
+
+\subsection{learning the folding process with a conditional bijection}
+
+Similarly, we can estimate the stochastic folding process  with a conditional bijection $g_{z}:X\to U$, a tractable density $p_U(u)$, and training data from the simulator. In particular,
+\begin{equation}
+p_{X|Z}(x|z) =  p_{U}(g_{\phi;z}(x))\, J_{x|z} \;,
+\end{equation}
+where
+\begin{equation}
+J_{x|z} =  \left| \det \frac{\partial g_{\phi,z}({x})}{\partial {x}_T} \right|
+\end{equation}
+and $\phi$ are the internal network parameters for the bijection $g_{\phi; z}$. Learning of the stochastic folding process proceeds via gradient ascent $\nabla_\phi \sum_i \log p(x_j|z_j)$ with training data $(x,z)_j$. 
+
+
+
+\subsection{learning the unfolded density}
+
+
+Once we have the estimate $\hat{p}_{X|Z}(x|z)$, with $\phi$ fixed, we can estimate $p_{Z}(z)$ from observations $\left\{ x_i \right\}_{i=1}^{N}$ using Eq.~\ref{eq:px}. In particular we can approximate the integral $\int dz p(z)$ by efficiently sampling $\left \{ v_k \right \}_{k=1}^{K}$ from $p_V$, which induces an efficient sampling of $z_k = f^{-1}(v_k)$.  
+In particular 
+\begin{equation}\label{eq:px}
+p_{X}(x) = \int dz \, p_{X|Z}(x|z)\, p_{Z}(z) \approx \sum_{k=1}^K p_{U}(g_{\phi;z_k}(x))\, J_{x|z_k)} \, \, J_{z_k}\; .
+\end{equation}
+Learning proceeds via gradient ascent $\nabla_\theta \sum_i \log p(x_i)$ with data $x_i$  (i.e. maximum likelihood wrt. the internal parameters $\theta$). We envisage mini-batches of $\left \{ v_k \right \}_{k=1}^{K}$. Critically, $\nabla_\theta \sum_i \log p(x_i)$ includes a term $\nabla_\theta \sum_k \log J_{z_k}$, where $J_{z_k}$ depends on $\theta$ via Eq.~\ref{eq:jacJz}.
+
+\subsection{Discussion}
+
+The approach described above corresponds to a maximum likelihood estimate in the ill-posed inverse problem, thus there is still need for regularization for $p_Z{z}$. However, the approach described above works for un-binned data, and situations where the stochastic folding process $p_{X|Z}$ is implicitly defined by a simulator. Furthermore, $X$ and $Z$ may be high dimensional. Thus, this provides an in-roads to high-dimensional, unbinned unfolding using machine learning.
+
+
+
+\bibliographystyle{alpha}
+\bibliography{sample}
+
+\end{document}
